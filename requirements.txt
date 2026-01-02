@@ -1,0 +1,27 @@
+# J-QUANTS API 投資判断分析ツール 依存パッケージ
+
+# HTTP リクエスト
+requests>=2.31.0
+
+# 環境変数管理
+python-dotenv>=1.0.0
+
+# データ処理
+pandas>=2.0.0
+numpy>=1.24.0
+
+# グラフ作成（Plotly）
+plotly>=5.18.0
+
+# Jupyter Notebook サポート
+jupyter>=1.0.0
+ipykernel>=6.25.0
+
+# 日付処理
+python-dateutil>=2.8.2
+
+# テンプレートエンジン
+jinja2>=3.1.2
+
+
+
