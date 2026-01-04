@@ -366,43 +366,6 @@ class IndividualAnalyzer:
         
         return report_data
     
-    def analyze_from_watchlist(
-        self,
-        tag_filter: Optional[str] = None,
-        max_stocks: int = 10
-    ) -> List[Dict[str, Any]]:
-        """
-        ウォッチリストから銘柄を分析
-        
-        Args:
-            tag_filter: タグでフィルタリング（Noneの場合は全銘柄）
-            max_stocks: 最大分析銘柄数
-            
-        Returns:
-            分析結果のリスト
-        """
-        if not self.watchlist:
-            return []
-        
-        watchlist_data = self.watchlist.load()
-        
-        if tag_filter:
-            codes = self.watchlist.get_stocks_by_tag(tag_filter)
-        else:
-            codes = list(watchlist_data.keys())
-        
-        # 最大銘柄数制限
-        codes = codes[:max_stocks]
-        
-        results = []
-        for code in codes:
-            result = self.get_report_data(code)
-            if result:
-                results.append(result)
-        
-        return results
-
-
 def evaluate_roe_eps_bps_pattern(roe_change: bool, eps_change: bool, bps_change: bool) -> Dict[str, Any]:
     """
     ROE/EPS/BPSの前年比から8パターン評価

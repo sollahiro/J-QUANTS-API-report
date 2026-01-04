@@ -69,15 +69,7 @@ J-QUANTS API 接続テスト
 
 ## 4. 実際に使ってみる
 
-### パターンA：スクリーニング
-
-```bash
-python3 scripts/screening.py
-```
-
-詳細な使用方法は[README.md](README.md#パターンaスクリーニング)を参照してください。
-
-### パターンB：個別分析
+### 個別分析
 
 ```bash
 # ラッパースクリプトを使用（推奨）
@@ -87,7 +79,7 @@ python3 scripts/notebook_analysis.py 6501
 jupyter notebook notebooks/individual_analysis_template.ipynb
 ```
 
-詳細な使用方法は[README.md](README.md#パターンb個別詳細分析)を参照してください。
+詳細な使用方法は[README.md](README.md#個別詳細分析)を参照してください。
 
 ### ウォッチリスト管理
 
@@ -138,7 +130,6 @@ ModuleNotFoundError: No module named 'src'
 ## 次のステップ
 
 - [README.md](README.md)で詳細な機能説明を確認
-- スクリーニング結果を詳しく見る
 - 気になる銘柄を個別分析する
 - 生成されたHTMLレポートを確認する（総合評価機能を確認）
 - ウォッチリストに銘柄を追加して管理する

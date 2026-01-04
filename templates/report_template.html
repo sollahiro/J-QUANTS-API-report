@@ -46,6 +46,7 @@
                         <th>EPS</th>
                         <th>PER</th>
                         <th>PBR</th>
+                        <th>配当性向</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -62,6 +63,7 @@
                         <td>{% if year.get("eps") is not none %}{{ "{:.2f}".format(year.eps) }}{% else %}N/A{% endif %}</td>
                         <td>{% if year.get("per") is not none %}{{ "{:.2f}".format(year.per) }}{% else %}N/A{% endif %}</td>
                         <td>{% if year.get("pbr") is not none %}{{ "{:.2f}".format(year.pbr) }}{% else %}N/A{% endif %}</td>
+                        <td>{% if year.get("payout_ratio") is not none %}{{ "{:.2f}".format(year.payout_ratio) }}%{% else %}N/A{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -77,18 +79,25 @@
             <h2>財務グラフ</h2>
         </div>
         <div class="graphs-grid graphs-grid-compact">
-            {% set ns = namespace(prev_section_title="", graph_count=0) %}
+            {% set ns = namespace(prev_section_title="", graph_count=0, business_strength_done=false, shareholder_value_done=false) %}
             {% for graph in graphs %}
                 {% set ns.graph_count = ns.graph_count + 1 %}
+                {% set current_section_title = graph.section_title if graph.section_title else graph.title %}
+                {% if graph.section_title == "事業効率" and not ns.business_strength_done %}
+                <div class="section-divider">【事業の実力】</div>
+                {% set ns.business_strength_done = true %}
+                {% elif graph.section_title == "株主価値の蓄積" and not ns.shareholder_value_done %}
+                <div class="section-divider">【株主価値と市場評価】</div>
+                {% set ns.shareholder_value_done = true %}
+                {% endif %}
                 <!-- 全てのグラフを1列で大きめに表示 -->
                 <div class="graph-container graph-container-full">
-                    {% set current_section_title = graph.section_title if graph.section_title else graph.title %}
                     {% if current_section_title != ns.prev_section_title %}
                     <h2 class="section-title">{{ current_section_title }}</h2>
                     {% endif %}
                     {% set ns.prev_section_title = current_section_title %}
                     {% if graph.title and graph.title != current_section_title %}
-                    <h3 class="graph-title">{{ graph.title }}</h3>
+                    <h3 class="graph-title">{{ graph.title | safe }}</h3>
                     {% endif %}
                     {% if graph.type == "interactive" %}
                         <div class="graph-interactive">
@@ -108,16 +117,25 @@
                         <h4 class="evaluation-title">総合評価（{{ graph.evaluation.start_year }}-{{ graph.evaluation.end_year }}年）</h4>
                         <div class="evaluation-content">
                             <div class="evaluation-cagr">
-                                {% if graph.evaluation.roe_cagr is defined and graph.evaluation.eps_cagr is defined and graph.evaluation.bps_cagr is defined %}
-                                <!-- ROE/EPS/BPS推移用 -->
-                                <div class="cagr-item">ROE CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.roe_cagr) }}%</strong> ({{ graph.evaluation.roe_sign }})</div>
+                                {% if graph.evaluation.roic_cagr is defined and graph.evaluation.cf_conversion_cagr is defined %}
+                                <!-- 事業効率用 -->
+                                <div class="cagr-item">簡易ROIC CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.roic_cagr) }}%</strong> ({{ graph.evaluation.roic_sign }})</div>
+                                <div class="cagr-item">CF変換率 CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.cf_conversion_cagr) }}%</strong> ({{ graph.evaluation.cf_sign }})</div>
+                                {% elif graph.evaluation.eps_cagr is defined and graph.evaluation.bps_cagr is defined and graph.evaluation.roe_cagr is defined %}
+                                <!-- 株主価値の蓄積用 -->
                                 <div class="cagr-item">EPS CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.eps_cagr) }}%</strong> ({{ graph.evaluation.eps_sign }})</div>
                                 <div class="cagr-item">BPS CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.bps_cagr) }}%</strong> ({{ graph.evaluation.bps_sign }})</div>
-                                {% elif graph.evaluation.per_cagr is defined and graph.evaluation.pbr_cagr is defined and graph.evaluation.roe_cagr is defined %}
-                                <!-- PER/PBR/ROE推移用 -->
-                                <div class="cagr-item">PER CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.per_cagr) }}%</strong> ({{ graph.evaluation.per_sign }})</div>
-                                <div class="cagr-item">PBR CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.pbr_cagr) }}%</strong> ({{ graph.evaluation.pbr_sign }})</div>
                                 <div class="cagr-item">ROE CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.roe_cagr) }}%</strong> ({{ graph.evaluation.roe_sign }})</div>
+                                {% elif graph.evaluation.roe_cagr is defined and graph.evaluation.pbr_cagr is defined and graph.evaluation.payout_cagr is defined %}
+                                <!-- 配当政策と市場評価用 -->
+                                <div class="cagr-item">ROE CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.roe_cagr) }}%</strong> ({{ graph.evaluation.roe_sign }})</div>
+                                <div class="cagr-item">PBR CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.pbr_cagr) }}%</strong> ({{ graph.evaluation.pbr_sign }})</div>
+                                <div class="cagr-item">配当性向 CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.payout_cagr) }}%</strong> ({{ graph.evaluation.payout_sign }})</div>
+                                {% elif graph.evaluation.per_cagr is defined and graph.evaluation.roe_cagr is defined and graph.evaluation.pbr_cagr is defined %}
+                                <!-- 市場評価用 -->
+                                <div class="cagr-item">PER CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.per_cagr) }}%</strong> ({{ graph.evaluation.per_sign }})</div>
+                                <div class="cagr-item">ROE CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.roe_cagr) }}%</strong> ({{ graph.evaluation.roe_sign }})</div>
+                                <div class="cagr-item">PBR CAGR: <strong>{{ "{:+.2f}".format(graph.evaluation.pbr_cagr) }}%</strong> ({{ graph.evaluation.pbr_sign }})</div>
                                 {% endif %}
                             </div>
                             <div class="evaluation-result">

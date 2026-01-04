@@ -280,6 +280,9 @@ def calculate_metrics_flexible(
         cfi = to_float(year_data.get("CFI"))
         eps = to_float(year_data.get("EPS"))
         bps = to_float(year_data.get("BPS"))
+        # 配当性向（APIからは小数で返ってくるので100倍してパーセント値に変換）
+        payout_ratio_raw = to_float(year_data.get("PayoutRatioAnn"))
+        payout_ratio = payout_ratio_raw * 100 if payout_ratio_raw is not None else None
         
         # FCF計算
         fcf = None
@@ -343,6 +346,7 @@ def calculate_metrics_flexible(
             "price": price,
             "per": per,
             "pbr": pbr,
+            "payout_ratio": payout_ratio,  # 配当性向
         }
         years_metrics.append(year_metric)
     
@@ -407,6 +411,18 @@ def calculate_metrics_flexible(
         else:
             metrics["pbr_growth"] = None
             metrics["pbr_cagr"] = None
+        
+        # 配当性向成長率
+        payout_values = [y.get("payout_ratio") for y in years_metrics if y.get("payout_ratio") is not None]
+        if len(payout_values) >= 2:
+            metrics["payout_growth"] = calculate_growth_rate(payout_values, "配当性向")
+            if len(payout_values) >= 3:
+                metrics["payout_cagr"] = metrics["payout_growth"]
+            else:
+                metrics["payout_cagr"] = None
+        else:
+            metrics["payout_growth"] = None
+            metrics["payout_cagr"] = None
     else:
         metrics["fcf_growth"] = None
         metrics["roe_growth"] = None
@@ -414,6 +430,8 @@ def calculate_metrics_flexible(
         metrics["sales_growth"] = None
         metrics["per_growth"] = None
         metrics["pbr_growth"] = None
+        metrics["payout_growth"] = None
+        metrics["payout_cagr"] = None
     
     # 最新年度の値をメトリクスに追加（表示用）
     if years_metrics:

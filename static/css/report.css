@@ -277,6 +277,18 @@ body {
     margin-bottom: 8px;
 }
 
+/* セクション区切り（前半・後半） */
+.section-divider {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin: 30px 0 20px 0;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-left: 4px solid #2c3e50;
+    text-align: left;
+    color: #2c3e50;
+}
+
 .graph-title {
     font-size: 14pt;
     font-weight: 500;
@@ -462,6 +474,21 @@ body {
     color: #3730a3;
 }
 
+.evaluation-要注意 {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.evaluation-割安 {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.evaluation-警戒 {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
 .evaluation-note {
     font-size: 11pt;
     text-align: center;
@@ -504,6 +531,18 @@ body {
 
 .evaluation-note.evaluation-妙味 {
     color: #3730a3;
+}
+
+.evaluation-note.evaluation-要注意 {
+    color: #92400e;
+}
+
+.evaluation-note.evaluation-割安 {
+    color: #1e40af;
+}
+
+.evaluation-note.evaluation-警戒 {
+    color: #991b1b;
 }
 
 /* 財務データ表 */

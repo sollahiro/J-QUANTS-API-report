@@ -240,6 +240,9 @@ def calculate_metrics(
         cfi = to_float(year_data.get("CFI"))  # 投資CF
         eps = to_float(year_data.get("EPS"))
         bps = to_float(year_data.get("BPS"))
+        # 配当性向（APIからは小数で返ってくるので100倍してパーセント値に変換）
+        payout_ratio_raw = to_float(year_data.get("PayoutRatioAnn"))
+        payout_ratio = payout_ratio_raw * 100 if payout_ratio_raw is not None else None
         
         # FCF計算
         fcf = None
@@ -305,6 +308,7 @@ def calculate_metrics(
             "price": price,
             "per": per,
             "pbr": pbr,
+            "payout_ratio": payout_ratio,  # 配当性向
         }
         years_metrics.append(year_metric)
     
@@ -368,6 +372,15 @@ def calculate_metrics(
             )
         else:
             metrics["pbr_cagr"] = None
+        
+        # 配当性向 CAGR
+        if latest_year["payout_ratio"] is not None and oldest_year["payout_ratio"] is not None:
+            metrics["payout_cagr"] = calculate_cagr(
+                latest_year["payout_ratio"],
+                oldest_year["payout_ratio"]
+            )
+        else:
+            metrics["payout_cagr"] = None
     else:
         # 3年分のデータがない場合はCAGRをNoneに
         metrics["fcf_cagr"] = None
@@ -376,6 +389,7 @@ def calculate_metrics(
         metrics["sales_cagr"] = None
         metrics["per_cagr"] = None
         metrics["pbr_cagr"] = None
+        metrics["payout_cagr"] = None
     
     # 最新年度の値をメトリクスに追加（表示用）
     if years_metrics:
@@ -388,44 +402,6 @@ def calculate_metrics(
         metrics["latest_sales"] = latest.get("sales")
     
     return metrics
-
-
-def check_screening_criteria(
-    metrics: Dict[str, Any],
-    required_years: int = 3
-) -> Tuple[bool, str]:
-    """
-    スクリーニング条件をチェック
-
-    Args:
-        metrics: calculate_metricsで計算された指標
-        required_years: 必要な年数（デフォルト: 3年）
-
-    Returns:
-        (合格フラグ, 理由)
-    """
-    years = metrics.get("years", [])
-    available_years = metrics.get("available_years", len(years))
-    
-    # データ年数のチェック
-    if len(years) < required_years:
-        if available_years < required_years:
-            return False, f"{required_years}年分のデータが不足（取得可能: {available_years}年）"
-        else:
-            return False, f"{required_years}年分のデータが不足"
-    
-    # FCF 連続プラスのチェック（required_years年分）
-    fcf_values = [year.get("fcf") for year in years[:required_years]]
-    
-    # Noneチェック
-    if any(fcf is None for fcf in fcf_values):
-        return False, "FCFデータが不足"
-    
-    # 連続プラスチェック
-    if all(fcf > 0 for fcf in fcf_values):
-        return True, f"FCF {required_years}年連続プラス"
-    else:
-        return False, f"FCF {required_years}年連続プラス条件を満たさない"
 
 
 def get_monthly_avg_stock_price(

@@ -118,8 +118,8 @@ def main():
     print("=" * 60)
     print()
     print("次のステップ:")
-    print("1. スクリーニング実行: python scripts/screening.py")
-    print("2. 個別分析: jupyter notebook notebooks/individual_analysis_template.ipynb")
+    print("1. 個別分析: python3 scripts/analyze_stock.py <銘柄コード>")
+    print("2. Jupyter Notebookで詳細分析: python3 scripts/notebook_analysis.py <銘柄コード>")
     print("3. ウォッチリスト管理: python scripts/watchlist_manager.py list")
 
 
