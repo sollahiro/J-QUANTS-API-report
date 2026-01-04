@@ -59,3 +59,5 @@ watchlist.csv
 .DS_Store
 Thumbs.db
 
+#document
+changelog.md
