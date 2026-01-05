@@ -3,6 +3,7 @@ HTMLレポート生成モジュール
 """
 
 import logging
+import csv
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, List
@@ -105,7 +106,7 @@ def evaluate_business_efficiency_pattern(roic_cagr, cf_conversion_cagr):
 
 
 def evaluate_shareholder_value_pattern(eps_cagr, bps_cagr, roe_cagr):
-    """株主価値パターン評価（EPS × BPS × ROE）"""
+    """株主価値パターン評価（EPS × BPS × ROE）- 5類型評価"""
     if eps_cagr is None or bps_cagr is None or roe_cagr is None:
         return None
     
@@ -113,25 +114,16 @@ def evaluate_shareholder_value_pattern(eps_cagr, bps_cagr, roe_cagr):
     bps_sign = get_sign(bps_cagr)
     roe_sign = get_sign(roe_cagr)
     
-    patterns = {
-        ('+', '+', '+'): ('①', '王道成長', '最良', '効率も規模も拡大'),
-        ('+', '+', '-'): ('⑤', '成長効率低下', '危険', '規模拡大だがROE低下。'),
-        ('+', '-', '+'): ('②', '希薄化投資', '要精査', '増資や株式報酬でBPS↑、EPS希薄化。'),
-        ('+', '-', '-'): ('⑦', '一時益', '一時的', '売却益や自社株買いでEPSのみ改善。'),
-        ('-', '+', '+'): ('③', '高効率縮小', '良い', '自社株買い・リストラ'),
-        ('-', '+', '-'): ('⑥', '非効率拡張', '悪い', '資本肥大・失敗投資'),
-        ('-', '-', '+'): ('④', '効率↑でも縮小', '注意', '事業縮小'),
-        ('-', '-', '-'): ('⑧', '崩壊', '回避', '全部悪化')
-    }
-    
     pattern_key = (eps_sign, bps_sign, roe_sign)
-    if pattern_key in patterns:
-        pattern_num, pattern_name, evaluation, note = patterns[pattern_key]
+    
+    # 5類型評価（優先順位順に判定）
+    # A: EPS+, BPS+, ROE+ → 王道成長
+    if pattern_key == ('+', '+', '+'):
         return {
-            "pattern_num": pattern_num,
-            "pattern_name": pattern_name,
-            "evaluation": evaluation,
-            "note": note,
+            "pattern_num": 'A',
+            "pattern_name": '王道成長',
+            "evaluation": '最良',
+            "note": '利益と資本効率が同時拡大。長期保有。',
             "eps_cagr": eps_cagr,
             "bps_cagr": bps_cagr,
             "roe_cagr": roe_cagr,
@@ -139,6 +131,68 @@ def evaluate_shareholder_value_pattern(eps_cagr, bps_cagr, roe_cagr):
             "bps_sign": bps_sign,
             "roe_sign": roe_sign
         }
+    
+    # B: EPS+, BPS-, ROE+ → 資本回収型
+    if pattern_key == ('+', '-', '+'):
+        return {
+            "pattern_num": 'B',
+            "pattern_name": '資本回収型',
+            "evaluation": '良い',
+            "note": '成長余地低下・キャッシュ創出型',
+            "eps_cagr": eps_cagr,
+            "bps_cagr": bps_cagr,
+            "roe_cagr": roe_cagr,
+            "eps_sign": eps_sign,
+            "bps_sign": bps_sign,
+            "roe_sign": roe_sign
+        }
+    
+    # C: EPS-, BPS+, ROE- → 失敗拡張
+    if pattern_key == ('-', '+', '-'):
+        return {
+            "pattern_num": 'C',
+            "pattern_name": '失敗拡張',
+            "evaluation": '悪い',
+            "note": '増資・低収益投資。原則回避。',
+            "eps_cagr": eps_cagr,
+            "bps_cagr": bps_cagr,
+            "roe_cagr": roe_cagr,
+            "eps_sign": eps_sign,
+            "bps_sign": bps_sign,
+            "roe_sign": roe_sign
+        }
+    
+    # D: EPS-, BPS-, ROE± → 縮小・撤退（ROEは+でも-でも）
+    if eps_sign == '-' and bps_sign == '-':
+        return {
+            "pattern_num": 'D',
+            "pattern_name": '縮小・撤退',
+            "evaluation": '注意',
+            "note": '清算価値・再編期待の有無を確認。',
+            "eps_cagr": eps_cagr,
+            "bps_cagr": bps_cagr,
+            "roe_cagr": roe_cagr,
+            "eps_sign": eps_sign,
+            "bps_sign": bps_sign,
+            "roe_sign": roe_sign
+        }
+    
+    # E: EPS±, BPS+, ROE- → 非効率膨張（EPSは+でも-でも、ただしCを除く）
+    if bps_sign == '+' and roe_sign == '-' and pattern_key != ('-', '+', '-'):
+        return {
+            "pattern_num": 'E',
+            "pattern_name": '非効率膨張',
+            "evaluation": '要精査',
+            "note": '遊休資産・過剰内部留保の可能性',
+            "eps_cagr": eps_cagr,
+            "bps_cagr": bps_cagr,
+            "roe_cagr": roe_cagr,
+            "eps_sign": eps_sign,
+            "bps_sign": bps_sign,
+            "roe_sign": roe_sign
+        }
+    
+    # 上記のいずれにも該当しない場合（通常は発生しないが、念のため）
     return None
 
 
@@ -1155,14 +1209,20 @@ class HTMLReportGenerator:
         output_path: str
     ) -> bool:
         """
-        HTMLレポートを生成
+        HTMLレポートとCSVレポートを生成
+        
+        HTMLレポート生成時に、同じデータをCSV形式でも自動出力します。
         
         Args:
-            result: 分析結果の辞書
-            output_path: 出力パス（.html）
+            result: 分析結果の辞書（code, name, sector_33_name, market_name, metricsを含む）
+            output_path: 出力パス（.html拡張子を指定、CSVは同じベース名で自動生成）
             
         Returns:
             常にTrue（HTML生成成功時）
+            
+        Note:
+            - HTMLファイル: `{output_path}.html`
+            - CSVファイル: `{output_path}.csv`（同じディレクトリに自動生成）
         """
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1217,5 +1277,223 @@ class HTMLReportGenerator:
             f.write(html_content)
         
         print(f"✅ HTMLレポートが生成されました: {html_path}")
+        
+        # CSVファイルも生成
+        csv_path = output_path.with_suffix('.csv')
+        self._generate_csv(result, graphs, csv_path)
+        
+        print(f"✅ CSVレポートが生成されました: {csv_path}")
         print()
         return True
+    
+    def _generate_csv(self, result: Dict[str, Any], graphs: List[Dict[str, Any]], csv_path: Path):
+        """
+        HTMLレポートの内容をCSV形式で出力
+        
+        純粋なデータのみをCSV形式で出力します。グラフ評価情報は含まれません。
+        
+        出力内容:
+        - ヘッダー情報: 銘柄コード、会社名、セクター名、市場名、分析日
+        - 年度別財務データ: 19列の財務データ（基本財務指標 + グラフ用計算指標）
+        
+        Args:
+            result: 分析結果の辞書（code, name, sector_33_name, market_name, metricsを含む）
+            graphs: グラフ情報のリスト（未使用だが、将来の拡張のために保持）
+            csv_path: CSV出力パス（.csv拡張子）
+        """
+        code = result.get("code", "")
+        name = result.get("name", "")
+        sector_name = result.get("sector_33_name", "")
+        market_name = result.get("market_name", "")
+        analysis_date = datetime.now().strftime("%Y年%m月%d日")
+        
+        metrics = result.get("metrics", {})
+        years = metrics.get("years", [])
+        
+        with open(csv_path, 'w', newline='', encoding='utf-8-sig') as f:
+            writer = csv.writer(f)
+            
+            # ========================================
+            # セクション1: ヘッダー情報
+            # ========================================
+            writer.writerow(["項目", "値"])
+            writer.writerow(["銘柄コード", code])
+            writer.writerow(["会社名", name])
+            writer.writerow(["セクター名", sector_name])
+            writer.writerow(["市場名", market_name])
+            writer.writerow(["分析日", analysis_date])
+            writer.writerow([])  # 空行
+            
+            # ========================================
+            # セクション2: 年度別財務データ
+            # ========================================
+            if years:
+                # ----------------------------------------
+                # グラフ作成用データの計算
+                # ----------------------------------------
+                
+                # 簡易ROICとCF変換率を計算（事業効率グラフ用）
+                roic_values = []
+                cf_conversion_values = []
+                for year in years:
+                    op = year.get("op")
+                    eq = year.get("eq")
+                    cfo = year.get("cfo")
+                    
+                    # 簡易ROIC計算
+                    roic = None
+                    if op is not None and eq is not None and eq != 0:
+                        roic = (op / eq) * 100  # パーセント表示
+                    roic_values.append(roic)
+                    
+                    # CF変換率計算
+                    cf_conversion = None
+                    if cfo is not None and op is not None and op != 0:
+                        cf_conversion = (cfo / op) * 100  # パーセント表示
+                    cf_conversion_values.append(cf_conversion)
+                
+                # 株価指数とEPS指数を計算（株価とEPSの乖離グラフ用）
+                # 既存のpriceデータを使用（APIから再取得しない）
+                stock_prices = []
+                price_indices = []
+                eps_indices = []
+                
+                # 年度終了日から年度を抽出する関数（指数化の基準年度特定用）
+                def extract_year_int(fy_end_str):
+                    """
+                    年度終了日から年度を抽出（整数）
+                    
+                    Args:
+                        fy_end_str: 年度終了日（YYYY-MM-DD形式またはYYYYMMDD形式）
+                    
+                    Returns:
+                        年度（整数）、抽出できない場合はNone
+                    """
+                    if not fy_end_str:
+                        return None
+                    try:
+                        if len(fy_end_str) >= 4:
+                            year_str = fy_end_str[:4] if '-' not in fy_end_str[:4] else fy_end_str.split('-')[0]
+                            return int(year_str)
+                    except (ValueError, TypeError):
+                        pass
+                    return None
+                
+                # 有効な株価とEPSを持つ年度を特定（指数計算のため）
+                valid_data = []
+                for year in years:
+                    price = year.get("price")
+                    eps = year.get("eps")
+                    fy_end = year.get("fy_end")
+                    if price is not None and eps is not None and fy_end:
+                        year_int = extract_year_int(fy_end)
+                        if year_int is not None:
+                            valid_data.append({
+                                "year_int": year_int,
+                                "price": price,
+                                "eps": eps,
+                                "fy_end": fy_end
+                            })
+                
+                # 最も古い年度を特定（指数化の基準年度=100）
+                if valid_data:
+                    oldest_data = min(valid_data, key=lambda x: x['year_int'])
+                    oldest_price = oldest_data["price"]
+                    oldest_eps = oldest_data["eps"]
+                    
+                    # 各年度の株価と指数を計算
+                    for year in years:
+                        price = year.get("price")
+                        eps = year.get("eps")
+                        
+                        stock_prices.append(price)
+                        
+                        # 株価指数を計算（基準年度=100）
+                        if price is not None and oldest_price and oldest_price != 0:
+                            price_index = (price / oldest_price) * 100
+                        else:
+                            price_index = None
+                        price_indices.append(price_index)
+                        
+                        # EPS指数を計算（基準年度=100）
+                        if eps is not None and oldest_eps and oldest_eps != 0:
+                            eps_index = (eps / oldest_eps) * 100
+                        else:
+                            eps_index = None
+                        eps_indices.append(eps_index)
+                else:
+                    # 有効なデータがない場合（全てNoneで埋める）
+                    for _ in years:
+                        stock_prices.append(None)
+                        price_indices.append(None)
+                        eps_indices.append(None)
+                
+                # ----------------------------------------
+                # CSV出力: ヘッダー行とデータ行
+                # ----------------------------------------
+                
+                # ヘッダー行（19列）
+                header = [
+                    "年度終了日", "売上高(百万円)", "営業利益(百万円)", "当期純利益(百万円)",
+                    "純資産(百万円)", "営業CF(百万円)", "投資CF(百万円)", "FCF(百万円)",
+                    "ROE(%)", "EPS(円)", "BPS(円)", "PER(倍)", "PBR(倍)", "配当性向(%)",
+                    "簡易ROIC(%)", "CF変換率(%)", "株価(円)", "株価指数", "EPS指数"
+                ]
+                writer.writerow(header)
+                
+                # データ行（各年度のデータを出力）
+                for i, year in enumerate(years):
+                    def format_value(val, is_currency=False):
+                        """
+                        値をフォーマットして文字列に変換
+                        
+                        Args:
+                            val: フォーマットする値
+                            is_currency: Trueの場合、円単位を百万円単位に変換
+                        
+                        Returns:
+                            フォーマットされた文字列、Noneの場合は空文字列
+                        """
+                        if val is None:
+                            return ""
+                        try:
+                            if is_currency:
+                                # 円単位を百万円単位に変換（J-Quants APIのデータは円単位）
+                                return f"{val / 1000000:.2f}"
+                            elif isinstance(val, (int, float)):
+                                return f"{val:.2f}"
+                            else:
+                                return str(val)
+                        except (ValueError, TypeError):
+                            return str(val) if val is not None else ""
+                    
+                    # グラフ用計算データを取得
+                    roic = roic_values[i] if i < len(roic_values) else None
+                    cf_conversion = cf_conversion_values[i] if i < len(cf_conversion_values) else None
+                    stock_price = stock_prices[i] if i < len(stock_prices) else None
+                    price_index = price_indices[i] if i < len(price_indices) else None
+                    eps_index = eps_indices[i] if i < len(eps_indices) else None
+                    
+                    # データ行を構築（19列）
+                    row = [
+                        year.get("fy_end", ""),  # 年度終了日
+                        format_value(year.get("sales"), is_currency=True),  # 売上高(百万円)
+                        format_value(year.get("op"), is_currency=True),  # 営業利益(百万円)
+                        format_value(year.get("np"), is_currency=True),  # 当期純利益(百万円)
+                        format_value(year.get("eq"), is_currency=True),  # 純資産(百万円)
+                        format_value(year.get("cfo"), is_currency=True),  # 営業CF(百万円)
+                        format_value(year.get("cfi"), is_currency=True),  # 投資CF(百万円)
+                        format_value(year.get("fcf"), is_currency=True),  # FCF(百万円)
+                        format_value(year.get("roe")),  # ROE(%)
+                        format_value(year.get("eps")),  # EPS(円)
+                        format_value(year.get("bps")),  # BPS(円)
+                        format_value(year.get("per")),  # PER(倍)
+                        format_value(year.get("pbr")),  # PBR(倍)
+                        format_value(year.get("payout_ratio")),  # 配当性向(%)
+                        format_value(roic),  # 簡易ROIC(%) - グラフ用計算指標
+                        format_value(cf_conversion),  # CF変換率(%) - グラフ用計算指標
+                        format_value(stock_price),  # 株価(円)
+                        format_value(price_index) if price_index is not None else "",  # 株価指数 - グラフ用計算指標
+                        format_value(eps_index) if eps_index is not None else "",  # EPS指数 - グラフ用計算指標
+                    ]
+                    writer.writerow(row)

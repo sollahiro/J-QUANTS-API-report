@@ -72,20 +72,25 @@ jquants-analyzer/
 #### `src/report/` - レポート生成
 
 **`src/report/html_report.py`**
-- **役割**: HTMLレポートの生成
+- **役割**: HTMLレポートとCSVレポートの生成
 - **主要機能**:
   - 分析結果からHTMLレポートを生成
+  - CSVレポートの自動生成（HTMLレポートと同じデータをCSV形式で出力）
   - PlotlyグラフのインタラクティブHTMLへの変換
   - 総合評価の計算（事業効率、株主価値、配当政策、市場評価用）
   - CAGR（年平均成長率）の計算
   - Jinja2テンプレートを使用したレンダリング
 - **主要クラス**: `HTMLReportGenerator`
+- **主要メソッド**:
+  - `generate()` - HTMLレポートとCSVレポートを生成
+  - `_create_interactive_graphs()` - グラフ生成
+  - `_generate_csv()` - CSVレポート生成（純粋なデータのみ、グラフ評価情報は含まない）
 - **主要関数**: 
   - `calculate_cagr()` - CAGR計算関数
-  - `evaluate_business_efficiency_pattern()` - 事業効率パターン評価
-  - `evaluate_shareholder_value_pattern()` - 株主価値パターン評価
-  - `evaluate_dividend_policy_pattern()` - 配当政策パターン評価
-  - `evaluate_market_valuation_pattern()` - 市場評価パターン評価
+  - `evaluate_business_efficiency_pattern()` - 事業効率パターン評価（4パターン）
+  - `evaluate_shareholder_value_pattern()` - 株主価値パターン評価（5類型）
+  - `evaluate_dividend_policy_pattern()` - 配当政策パターン評価（8パターン）
+  - `evaluate_market_valuation_pattern()` - 市場評価パターン評価（8パターン）
 
 **`src/report/__init__.py`**
 - レポートモジュールの公開インターフェースを定義
@@ -223,7 +228,8 @@ jquants-analyzer/
 ### その他のディレクトリ
 
 **`reports/`**
-- 生成されたHTMLレポートを保存
+- 生成されたHTMLレポート（`.html`）とCSVレポート（`.csv`）を保存
+- ファイル名形式: `visual_report_{銘柄コード}_{タイムスタンプ}.html` / `.csv`
 
 **`cache/`**
 - APIレスポンスのキャッシュファイル（`.pkl`形式）を保存
@@ -243,10 +249,11 @@ jquants-analyzer/
 3. **`src/analysis/calculator.py`** で指標計算
    ↓
 4. **`src/report/html_report.py`** (`HTMLReportGenerator`) でレポート生成
-   - 総合評価の計算（CAGRに基づく8パターン評価）
+   - 総合評価の計算（CAGRに基づくパターン評価）
    - Plotlyグラフの生成
-   - `templates/report_template.html` を使用
+   - `templates/report_template.html` を使用してHTMLレポート生成
    - `static/css/report.css` でスタイリング
+   - CSVレポートの自動生成（HTMLレポートと同じデータをCSV形式で出力）
 
 ---
 
@@ -291,16 +298,15 @@ HTMLレポートでは、CAGR（年平均成長率）に基づいて各グラフ
 
 ### グラフ3：株主価値の蓄積（EPS × BPS × ROE）
 
-| パターン | EPS | BPS | ROE | 状態 | 評価 | 投資視点 |
-|---------|-----|-----|-----|------|------|---------|
-| ① | + | + | + | 王道成長 | 最良 | 効率も規模も拡大 |
-| ⑤ | + | + | − | 成長効率低下 | 危険 | 規模拡大だがROE低下。 |
-| ② | + | − | + | 希薄化投資 | 要精査 | 増資や株式報酬でBPS↑、EPS希薄化。 |
-| ⑦ | + | − | − | 一時益 | 一時的 | 売却益や自社株買いでEPSのみ改善。 |
-| ③ | − | + | + | 高効率縮小 | 良い | 自社株買い・リストラ |
-| ⑥ | − | + | − | 非効率拡張 | 悪い | 資本肥大・失敗投資 |
-| ④ | − | − | + | 効率↑でも縮小 | 注意 | 事業縮小 |
-| ⑧ | − | − | − | 崩壊 | 回避 | 全部悪化 |
+| 類型 | EPS | BPS | ROE | 状態 | 評価 | 投資視点 |
+|------|-----|-----|-----|------|------|---------|
+| A | + | + | + | 王道成長 | 最良 | 利益と資本効率が同時拡大。長期保有。 |
+| B | + | − | + | 資本回収型 | 良い | 成長余地低下・キャッシュ創出型 |
+| C | − | + | − | 失敗拡張 | 悪い | 増資・低収益投資。原則回避。 |
+| D | − | − | ± | 縮小・撤退 | 注意 | 清算価値・再編期待の有無を確認。 |
+| E | ± | + | − | 非効率膨張 | 要精査 | 遊休資産・過剰内部留保の可能性 |
+
+注: ±はCAGRの推移を問わず（他のプラスマイナスに従う）という意味
 
 ### グラフ4：配当政策と市場評価（ROE × PBR × 配当性向）
 

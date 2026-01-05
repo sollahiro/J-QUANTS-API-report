@@ -76,6 +76,11 @@ jupyter notebook notebooks/individual_analysis_template.ipynb
       - 市場評価（PER × ROE × PBR、総合評価付き）
       - 株価とEPSの乖離
   - 総合評価：CAGRに基づくパターン評価、評価コメントは評価に応じて色付き表示
+- **CSVレポート**：HTMLレポート生成時に自動出力（純粋なデータのみ）
+  - ヘッダー情報（銘柄コード、会社名、セクター名、市場名、分析日）
+  - 年度別財務データ（19列：基本財務指標 + グラフ用計算指標）
+    - 基本財務指標：年度終了日、売上高、営業利益、当期純利益、純資産、営業CF、投資CF、FCF、ROE、EPS、BPS、PER、PBR、配当性向
+    - グラフ用計算指標：簡易ROIC、CF変換率、株価、株価指数、EPS指数
 
 ### ウォッチリスト管理
 
@@ -127,7 +132,7 @@ jquants-analyzer/
 ├── static/
 │   └── css/
 │       └── report.css         # レポート用CSS
-├── reports/                    # 生成されたHTMLレポート保存先
+├── reports/                    # 生成されたHTMLレポートとCSVレポート保存先
 ├── cache/                      # APIレスポンスキャッシュ
 ├── watchlist.json              # ウォッチリスト（JSON形式）
 ├── requirements.txt

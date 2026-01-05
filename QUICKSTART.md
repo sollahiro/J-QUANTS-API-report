@@ -132,5 +132,6 @@ ModuleNotFoundError: No module named 'src'
 - [README.md](README.md)で詳細な機能説明を確認
 - 気になる銘柄を個別分析する
 - 生成されたHTMLレポートを確認する（総合評価機能を確認）
+- 生成されたCSVレポートを確認する（Excel等で開いてデータ分析）
 - ウォッチリストに銘柄を追加して管理する
 
