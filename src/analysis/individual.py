@@ -4,11 +4,13 @@
 
 import os
 import csv
+import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+from tqdm import tqdm
 
 from ..api.client import JQuantsAPIClient
 from ..utils.financial_data import extract_annual_data
@@ -16,6 +18,18 @@ from ..utils.cache import CacheManager
 from ..utils.watchlist import WatchlistManager
 from ..analysis.calculator import calculate_metrics_flexible
 from ..config import config
+
+logger = logging.getLogger(__name__)
+
+# EDINET統合（オプション）
+try:
+    from ..api.edinet_client import EdinetAPIClient
+    from ..analysis.pdf_parser import PDFParser
+    from ..analysis.llm_summarizer import LLMSummarizer
+    EDINET_AVAILABLE = True
+except ImportError:
+    EDINET_AVAILABLE = False
+    logger.debug("EDINET統合モジュールが利用できません。")
 
 
 class IndividualAnalyzer:
@@ -42,6 +56,22 @@ class IndividualAnalyzer:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.cache = CacheManager() if use_cache else None
         self.watchlist = WatchlistManager(watchlist_file) if watchlist_file else None
+        
+        # EDINET統合（オプション）
+        if EDINET_AVAILABLE:
+            try:
+                self.edinet_client = EdinetAPIClient()
+                self.pdf_parser = PDFParser()
+                self.llm_summarizer = LLMSummarizer()
+            except Exception as e:
+                logger.warning(f"EDINETクライアントの初期化に失敗しました: {e}")
+                self.edinet_client = None
+                self.pdf_parser = None
+                self.llm_summarizer = None
+        else:
+            self.edinet_client = None
+            self.pdf_parser = None
+            self.llm_summarizer = None
     
     def analyze_stock(
         self,
@@ -154,6 +184,18 @@ class IndividualAnalyzer:
                 "metrics": metrics,
                 "analyzed_at": datetime.now().isoformat(),
             }
+            
+            # EDINET統合: 有価証券報告書を取得
+            if self.edinet_client:
+                try:
+                    # 年度リストを取得
+                    years_list = [int(year.get("fy_end", "")[:4]) for year in annual_data[:analysis_years] if year.get("fy_end")]
+                    if years_list:
+                        edinet_data = self.fetch_edinet_reports(code, years_list)
+                        if edinet_data:
+                            result["edinet_data"] = edinet_data
+                except Exception as e:
+                    logger.warning(f"EDINETデータ取得エラー: {code} - {e}")
             
             # データ保存
             if save_data:
@@ -309,6 +351,74 @@ class IndividualAnalyzer:
                     pass
         
         return comparison
+    
+    def fetch_edinet_reports(
+        self,
+        code: str,
+        years: List[int]
+    ) -> Dict[int, Dict[str, Any]]:
+        """
+        指定年度の有価証券報告書を取得し、要約を生成
+
+        Args:
+            code: 銘柄コード
+            years: 年度のリスト
+
+        Returns:
+            {year: {docID, submitDate, pdf_path, management_policy}} の辞書
+        """
+        if not self.edinet_client:
+            return {}
+        
+        try:
+            # 有報を取得
+            reports = self.edinet_client.fetch_reports(code, years)
+            
+            if not reports:
+                return {}
+            
+            # 各年度の有報を解析・要約
+            results = {}
+            
+            for year, report_info in tqdm(reports.items(), desc="有報解析中", leave=False):
+                doc_id = report_info.get("docID")
+                
+                if not doc_id:
+                    continue
+                
+                result = {
+                    "docID": doc_id,
+                    "submitDate": report_info.get("submitDate", ""),
+                    "pdf_path": report_info.get("pdf_path"),
+                    "management_policy": "",
+                }
+                
+                # PDF解析と要約（PDFのみ使用、XBRLは廃止）
+                pdf_path = report_info.get("pdf_path")
+                
+                if pdf_path and self.pdf_parser:
+                    pdf_file = Path(pdf_path)
+                    
+                    # 経営方針抽出（MD&Aは削除）
+                    policy_text = self.pdf_parser.extract_management_policy(pdf_file)
+                    if policy_text and self.llm_summarizer:
+                        result["management_policy"] = self.llm_summarizer.summarize_text(
+                            policy_text,
+                            "経営方針・課題",
+                            doc_id=doc_id
+                        )
+                    elif policy_text:
+                        result["management_policy"] = policy_text[:500] + "..." if len(policy_text) > 500 else policy_text
+                else:
+                    logger.warning(f"PDFファイルが見つかりません: docID={doc_id}, pdf_path={pdf_path}")
+                
+                results[year] = result
+            
+            return results
+        
+        except Exception as e:
+            logger.error(f"EDINETレポート取得エラー: {code} - {e}")
+            return {}
     
     def get_report_data(self, code: str) -> Optional[Dict[str, Any]]:
         """

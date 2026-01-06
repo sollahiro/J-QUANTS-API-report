@@ -3,9 +3,11 @@
 ## 1. 環境設定
 
 ### APIキーの取得
-1. [J-QUANTS Dashboard](https://jpx-jquants.com/) にアクセス
-2. アカウントを作成（無料プランで利用可能）
-3. DashboardからAPIキーを取得
+1. **J-QUANTS API**: [J-QUANTS Dashboard](https://jpx-jquants.com/) にアクセス
+   - アカウントを作成（無料プランで利用可能）
+   - DashboardからAPIキーを取得
+2. **EDINET API**（オプション、定性情報分析を使用する場合）: [EDINET API](https://disclosure2.edinet-fsa.go.jp/) にアクセス
+   - APIキーを取得
 
 ### 環境変数の設定
 
@@ -22,8 +24,9 @@ cp .env.example .env
 ```bash
 # .envファイルを作成
 cat > .env << EOF
-JQUANTS_API_KEY=your_api_key_here
-JQUANTS_API_BASE_URL=https://api.jquants.com/v1
+JQUANTS_API_KEY=your_jquants_api_key_here
+JQUANTS_API_BASE_URL=https://api.jquants.com/v2
+EDINET_API_KEY=your_edinet_api_key_here
 EOF
 ```
 
@@ -39,12 +42,40 @@ pip install -r requirements.txt
 pip3 install -r requirements.txt
 ```
 
+## 2.5. Ollamaのセットアップ（定性情報分析を使用する場合）
+
+定性情報分析機能を使用する場合は、Ollamaをインストールして起動する必要があります。
+
+```bash
+# macOSの場合
+brew install ollama
+
+# Ollamaを起動（バックグラウンドで実行）
+ollama serve
+
+# gemma2:2bモデルをダウンロード
+ollama pull gemma2:2b
+```
+
+Ollamaが起動しているか確認：
+```bash
+ollama list
+```
+
 ## 3. 動作確認
 
 ### API接続テスト
 
 ```bash
 python3 scripts/test_connection.py
+```
+
+### EDINET統合機能テスト（オプション）
+
+定性情報分析機能をテストする場合：
+
+```bash
+python3 scripts/test_edinet.py
 ```
 
 正常に動作すれば、以下のような出力が表示されます：

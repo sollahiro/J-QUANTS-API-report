@@ -1,4 +1,4 @@
-# J-QUANTS API 投資判断分析ツール 依存パッケージ
+# Educe 投資判断分析ツール 依存パッケージ
 
 # HTTP リクエスト
 requests>=2.31.0
@@ -22,6 +22,11 @@ python-dateutil>=2.8.2
 
 # テンプレートエンジン
 jinja2>=3.1.2
+
+# EDINET統合機能（オプション）
+ollama>=0.1.0  # LLM要約用
+tqdm>=4.66.0  # プログレスバー表示用
+pdfplumber>=0.10.0  # PDF解析用
 
 
 

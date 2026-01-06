@@ -23,6 +23,9 @@ class Config:
             "https://api.jquants.com/v2"
         )
         
+        # EDINET API設定
+        self.edinet_api_key = os.getenv("EDINET_API_KEY")
+        
         # 分析設定
         # ANALYSIS_YEARSは環境変数で指定可能（指定しない場合は利用可能なデータを最大限使用）
         analysis_years_str = os.getenv("ANALYSIS_YEARS")

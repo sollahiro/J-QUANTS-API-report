@@ -32,6 +32,7 @@ ENV/
 cache/
 *.pkl
 notebooks/cache/
+cache/edinet/
 
 # データ
 data/
@@ -40,6 +41,7 @@ notebooks/data/
 
 # レポート
 reports/
+reports/*_edinet/
 
 # ウォッチリスト
 watchlist.json
@@ -61,3 +63,4 @@ Thumbs.db
 
 #document
 CHANGELOG.md
+API＿USAGE.md

@@ -1,11 +1,11 @@
 # プロジェクト構造とファイル説明
 
-このドキュメントでは、J-QUANTS投資判断分析ツールのプロジェクト構造と各ファイルの役割を説明します。
+このドキュメントでは、投資判断分析ツールのプロジェクト構造と各ファイルの役割を説明します。
 
 ## プロジェクト構造
 
 ```
-jquants-analyzer/
+Educe/
 ├── src/                    # メインソースコード
 │   ├── api/                # J-QUANTS API関連
 │   ├── analysis/           # 分析ロジック
@@ -27,7 +27,7 @@ jquants-analyzer/
 
 ### `src/` - メインソースコード
 
-#### `src/api/` - J-QUANTS API関連
+#### `src/api/` - API関連
 
 **`src/api/client.py`**
 - **役割**: J-QUANTS APIとの通信を担当
@@ -37,6 +37,25 @@ jquants-analyzer/
   - レート制限の管理
   - エラーハンドリングとリトライ処理
 - **主要クラス**: `JQuantsAPIClient`
+
+**`src/api/edinet_client.py`**
+- **役割**: EDINET APIとの通信を担当
+- **主要機能**:
+  - 有価証券報告書の検索（銘柄コードと年度から検索）
+  - 書類のダウンロード（PDF/XBRL形式）
+  - レート制限の管理（429エラー時の自動リトライ）
+  - エラーハンドリングとリトライ処理
+  - キャッシュディレクトリの管理
+- **主要クラス**: `EdinetAPIClient`
+- **主要メソッド**:
+  - `search_documents()` - 有報を検索（銘柄コード、年度、書類種別で検索）
+  - `download_document()` - 書類をダウンロード（PDF/XBRL形式）
+  - `fetch_reports()` - 指定年度の有報を取得（複数年度対応）
+- **API仕様**:
+  - **ベースURL**: `https://api.edinet-fsa.go.jp/api/v2`
+  - **認証方式**: APIキー認証（`Ocp-Apim-Subscription-Key`ヘッダー）
+  - **レート制限**: 429エラー時に自動的に待機してリトライ（最大3回）
+  - **タイムアウト**: 60秒
 
 **`src/api/__init__.py`**
 - APIモジュールの公開インターフェースを定義
@@ -64,6 +83,40 @@ jquants-analyzer/
   - 各種比率の算出
 - **主要関数**: `calculate_metrics_flexible()`
 
+**`src/analysis/pdf_parser.py`**
+- **役割**: PDFファイルの解析（有価証券報告書からテキスト抽出）
+- **主要機能**:
+  - 有価証券報告書PDFからテキストを抽出（`pdfplumber`を使用）
+  - セクション抽出（経営方針・課題等）
+  - テキスト整形（不要な改行や空白の除去）
+- **主要クラス**: `PDFParser`
+- **主要メソッド**:
+  - `extract_section()` - 指定セクションを抽出
+  - `extract_management_policy()` - 経営方針・課題を抽出
+- **技術仕様**:
+  - **使用ライブラリ**: `pdfplumber`（PDFからテキストを抽出）
+  - **処理対象**: 有価証券報告書のPDFファイル
+  - **抽出セクション**: 経営方針・課題セクション（事業戦略、事業環境、リスク要因など）
+
+**`src/analysis/llm_summarizer.py`**
+- **役割**: ローカルLLM（Ollama）を使用したテキスト要約
+- **主要機能**:
+  - Ollamaを使用した要約生成（`gemma2:2b`モデル）
+  - 日本語出力の強制（英語の固有名詞も日本語に翻訳）
+  - マークダウン記法での出力（見出し、箇条書き、強調）
+  - キャッシュ機能（要約結果をファイルに保存）
+  - エラーハンドリング（Ollama未起動時の適切な処理）
+- **主要クラス**: `LLMSummarizer`
+- **主要メソッド**:
+  - `summarize_text()` - テキストを要約（マークダウン記法で出力）
+  - `_check_ollama_available()` - Ollamaが利用可能かチェック
+  - `_get_cache_path()` - キャッシュファイルのパスを取得
+- **技術仕様**:
+  - **使用モデル**: `gemma2:2b`（軽量で高速な日本語対応モデル）
+  - **タイムアウト**: 60秒（デフォルト）
+  - **キャッシュ保存先**: `cache/edinet/summaries/{docID}_{section}.txt`
+  - **プロンプト**: セクション名に応じて最適化されたプロンプトを使用
+
 **`src/analysis/__init__.py`**
 - 分析モジュールの公開インターフェースを定義
 
@@ -80,11 +133,12 @@ jquants-analyzer/
   - 総合評価の計算（事業効率、株主価値、配当政策、市場評価用）
   - CAGR（年平均成長率）の計算
   - Jinja2テンプレートを使用したレンダリング
+  - EDINETデータの統合（定性情報分析セクション）
 - **主要クラス**: `HTMLReportGenerator`
 - **主要メソッド**:
-  - `generate()` - HTMLレポートとCSVレポートを生成
+  - `generate()` - HTMLレポートとCSVレポートを生成（EDINETデータを含む）
   - `_create_interactive_graphs()` - グラフ生成
-  - `_generate_csv()` - CSVレポート生成（純粋なデータのみ、グラフ評価情報は含まない）
+  - `_generate_csv()` - CSVレポート生成（純粋なデータのみ、グラフ評価情報は含まない、EDINETデータ列を含む）
 - **主要関数**: 
   - `calculate_cagr()` - CAGR計算関数
   - `evaluate_business_efficiency_pattern()` - 事業効率パターン評価（4パターン）
@@ -176,6 +230,15 @@ jquants-analyzer/
 - **役割**: 分析年数のテスト
 - **機能**: 異なる年数での分析結果をテスト
 
+**`scripts/test_edinet.py`**（新規）
+- **役割**: EDINET統合機能のテスト
+- **機能**: 
+  - EDINET API接続テスト
+  - 有報取得テスト
+  - XBRL解析テスト
+  - LLM要約テスト
+  - 統合テスト（HTML/CSV生成）
+
 ---
 
 ### `notebooks/` - Jupyter Notebook
@@ -197,6 +260,10 @@ jquants-analyzer/
 - **主要セクション**:
   - ヘッダー（銘柄情報、業種・市場区分・取得年月）
   - 年度別財務データテーブル
+  - **最新の事業概要・経営方針・課題**（新規）
+    - 最新年度の有価証券報告書から抽出した要約を表示
+    - マークダウン記法対応（見出し、箇条書き、強調表示）
+    - 有報PDFへのリンク
   - 財務グラフ（Plotlyインタラクティブグラフ）
     - **【事業の実力】**
       - 事業効率（簡易ROIC × CF変換率、総合評価付き）
@@ -221,6 +288,9 @@ jquants-analyzer/
   - 総合評価セクションのスタイル（CAGR左、パターンマッピング右）
   - 評価バッジの色分け（最良、良い、注意、危険、回避、要精査、妙味）
   - 評価コメントの色付き表示（評価に応じた色分け）
+  - **最新の事業概要・経営方針・課題セクションのスタイル**（新規）
+    - マークダウン記法のHTML変換スタイル（見出し、箇条書き、強調表示）
+    - 数字付き箇条書き（`ol`）と通常の箇条書き（`ul`）のネスト構造に対応
   - 印刷用スタイル（ページ分割なし）
 
 ---
@@ -230,9 +300,16 @@ jquants-analyzer/
 **`reports/`**
 - 生成されたHTMLレポート（`.html`）とCSVレポート（`.csv`）を保存
 - ファイル名形式: `visual_report_{銘柄コード}_{タイムスタンプ}.html` / `.csv`
+- **`reports/{code}_edinet/`**（新規）
+  - 有価証券報告書PDF（`{docID}.pdf`）
+  - XBRL展開ディレクトリ（`{docID}_xbrl/`）
 
 **`cache/`**
 - APIレスポンスのキャッシュファイル（`.pkl`形式）を保存
+- **`cache/edinet/`**（新規）
+  - EDINETデータキャッシュ
+  - **`cache/edinet/summaries/`**（新規）
+    - LLM要約キャッシュ（`{docID}_{section}.txt`形式）
 
 ---
 
@@ -243,28 +320,54 @@ jquants-analyzer/
 1. **`scripts/notebook_analysis.py`** または **`notebooks/individual_analysis_template.ipynb`**
    ↓
 2. **`src/analysis/individual.py`** (`IndividualAnalyzer`)
-   - `src/api/client.py` (`JQuantsAPIClient`) を使用してデータ取得
-   - `src/utils/cache.py` (`CacheManager`) でキャッシュ管理
+   - **J-QUANTS API統合**:
+     - `src/api/client.py` (`JQuantsAPIClient`) を使用して財務データ取得
+     - `src/utils/cache.py` (`CacheManager`) でキャッシュ管理
+   - **EDINET API統合**（オプション）:
+     - `src/api/edinet_client.py` (`EdinetAPIClient`) で有価証券報告書を検索・ダウンロード
+       - 銘柄コードと年度から有報を検索
+       - PDF/XBRLファイルをダウンロード（`reports/{code}_edinet/`に保存）
+     - `src/analysis/pdf_parser.py` (`PDFParser`) でPDFからテキストを抽出
+       - `pdfplumber`を使用してPDFからテキストを抽出
+       - 経営方針・課題セクションを抽出
+     - `src/analysis/llm_summarizer.py` (`LLMSummarizer`) でローカルLLM要約生成
+       - Ollama（`gemma2:2b`モデル）を使用してテキストを要約
+       - 日本語出力を強制し、マークダウン記法で出力
+       - 要約結果をキャッシュ（`cache/edinet/summaries/`に保存）
    ↓
 3. **`src/analysis/calculator.py`** で指標計算
+   - 財務指標の計算（FCF、ROE、EPS、PER、PBR等）
+   - CAGR（年平均成長率）の計算
    ↓
 4. **`src/report/html_report.py`** (`HTMLReportGenerator`) でレポート生成
    - 総合評価の計算（CAGRに基づくパターン評価）
    - Plotlyグラフの生成
    - `templates/report_template.html` を使用してHTMLレポート生成
    - `static/css/report.css` でスタイリング
-   - CSVレポートの自動生成（HTMLレポートと同じデータをCSV形式で出力）
+   - CSVレポートの自動生成（HTMLレポートと同じデータをCSV形式で出力、EDINETデータ列を含む）
+   - EDINET統合データの統合（事業概要・経営方針・課題要約をHTML/CSVに追加）
 
 ---
 
 ## 主要な依存関係
 
-- **`requests`**: HTTPリクエスト
+### 基本ライブラリ
+- **`requests`**: HTTPリクエスト（J-QUANTS API、EDINET API）
 - **`pandas`**: データ処理
 - **`plotly`**: グラフ生成
 - **`jinja2`**: テンプレートエンジン
 - **`python-dotenv`**: 環境変数管理
 - **`jupyter`**: Notebook実行環境
+
+### EDINET統合機能関連
+- **`ollama`**: ローカルLLM要約（Ollamaクライアントライブラリ）
+- **`pdfplumber`**: PDF解析（有価証券報告書からテキスト抽出）
+- **`tqdm`**: プログレスバー表示（有報解析進捗表示）
+
+### 外部サービス
+- **J-QUANTS API**: 財務データ取得（必須）
+- **EDINET API**: 有価証券報告書取得（オプション）
+- **Ollama**: ローカルLLM実行環境（オプション、EDINET統合機能使用時）
 
 ---
 

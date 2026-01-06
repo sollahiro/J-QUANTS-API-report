@@ -26,6 +26,27 @@
             </div>
         </div>
 
+        <!-- 最新の事業概要・経営方針・課題セクション -->
+        {% if latest_edinet_data and latest_edinet_year %}
+        <div class="latest-management-policy-section">
+            <div class="section-header">
+                <h2>最新の事業概要・経営方針・課題</h2>
+                <p class="subsection-title">{{ latest_edinet_year }}年度有価証券報告書より{% if latest_edinet_data.submitDate %}（提出日: {{ latest_edinet_data.submitDate }}）{% endif %}</p>
+            </div>
+            <div class="latest-management-policy-content">
+                {% if latest_edinet_data.management_policy %}
+                <div class="summary-text">{{ latest_edinet_data.management_policy | format_summary_text | safe }}</div>
+                {% endif %}
+                
+                {% if latest_edinet_data.pdf_path %}
+                <div class="document-link">
+                    <a href="{{ latest_edinet_data.pdf_path }}" target="_blank">有価証券報告書PDFを開く</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- 年度別財務データ表 -->
         {% if years %}
         <div class="financial-table-section">
@@ -35,6 +56,7 @@
             <table class="financial-table">
                 <thead>
                     <tr>
+                        <th>年度</th>
                         <th>年度終了日</th>
                         <th>売上高</th>
                         <th>営業利益</th>
@@ -52,6 +74,7 @@
                 <tbody>
                     {% for year in years %}
                     <tr>
+                        <td>{{ year.get("fiscal_year", year.get("fy_end", "") | extract_fiscal_year) }}</td>
                         <td>{{ year.get("fy_end", "N/A") }}</td>
                         <td>{% if year.get("sales") is not none %}{{ year.sales | format_currency(0) }}{% else %}N/A{% endif %}</td>
                         <td>{% if year.get("op") is not none %}{{ year.op | format_currency(0) }}{% else %}N/A{% endif %}</td>
@@ -70,6 +93,7 @@
             </table>
         </div>
         {% endif %}
+
     </div>
 
     <!-- Page 2: グラフ -->

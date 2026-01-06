@@ -11,7 +11,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": 7,
    "metadata": {},
    "outputs": [],
    "source": [
@@ -46,7 +46,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": 8,
    "metadata": {},
    "outputs": [],
    "source": [
@@ -67,9 +67,19 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": 9,
    "metadata": {},
-   "outputs": [],
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "分析対象銘柄コードを入力してください\n",
+      "例: 6501 または 6501,2802 (複数銘柄の場合はカンマ区切り)\n",
+      "分析対象銘柄: ['2802']\n"
+     ]
+    }
+   ],
    "source": [
     "# 分析対象銘柄コードの設定\n",
     "# 環境変数NOTEBOOK_STOCK_CODESが設定されている場合はそれを使用\n",
@@ -101,9 +111,55 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": 10,
    "metadata": {},
-   "outputs": [],
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "分析中: 2802\n",
+      "🔍 get_report_data: 2802 味の素 の分析を開始します（キャッシュ: 無効）\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "WARNING:src.utils.financial_data:主要財務データが全てN/Aのため除外: fy_end=2023-03-31, sales=, op=, np=, eq=\n",
+      "WARNING:src.utils.financial_data:主要財務データが全てN/Aのため除外: fy_end=2025-03-31, sales=, op=, np=, eq=\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "📥 APIから取得された財務データ: 22件 味の素\n",
+      "📥 年度データ（CurPerType='FY'）: 7件 味の素\n",
+      "  年度終了日一覧:\n",
+      "    2021-03-31 (開示日: 2021-05-10)\n",
+      "    2022-03-31 (開示日: 2022-05-11)\n",
+      "    2023-03-31 (開示日: 2023-02-28)\n",
+      "    2023-03-31 (開示日: 2023-05-11)\n",
+      "    2024-03-31 (開示日: 2024-05-09)\n",
+      "    2025-03-31 (開示日: 2025-04-24)\n",
+      "    2025-03-31 (開示日: 2025-05-08)\n",
+      "📊 取得された年度データ: 5年分 味の素\n",
+      "  1. 年度終了日: 2025-03-31, 開示日: 2025-05-08\n",
+      "  2. 年度終了日: 2024-03-31, 開示日: 2024-05-09\n",
+      "  3. 年度終了日: 2023-03-31, 開示日: 2023-05-11\n",
+      "  4. 年度終了日: 2022-03-31, 開示日: 2022-05-11\n",
+      "  5. 年度終了日: 2021-03-31, 開示日: 2021-05-10\n",
+      "📈 分析年数: 5年（利用可能: 5年、最大: 10年） 味の素\n",
+      "🔧 calculate_metrics_flexible: 分析年数=5, 利用可能年数=5\n",
+      "🔧 calculate_metrics_flexible: 実際に使用する年数=5\n",
+      "✅ 分析完了: 5年分のデータ（分析年数: 5年） 味の素\n",
+      "  ✅ 取得完了: 5年分のデータ（分析年数: 5年） 味の素\n",
+      "\n",
+      "分析完了: 1銘柄\n"
+     ]
+    }
+   ],
    "source": [
     "results = []\n",
     "\n",
@@ -122,6 +178,7 @@
     "        # EDINETデータの取得（最新年度のみ）\n",
     "        try:\n",
     "            from datetime import datetime\n",
+    "            current_year = datetime.now().year\n",
     "            # 最新年度を取得（年度終了日から年度を計算）\n",
     "            if years:\n",
     "                latest_fy_end = years[0].get(\"fy_end\", \"\")\n",
@@ -162,7 +219,6 @@
     "            result['edinet_data'] = {}\n",
     "            print(f\"  ⚠️  EDINETデータ取得エラー: {e}\")\n",
     "    \n",
-    "        \n",
     "    if result:\n",
     "        results.append(result)\n",
     "    else:\n",
@@ -183,9 +239,17 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": 11,
    "metadata": {},
-   "outputs": [],
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ モジュールを再読み込みしました\n"
+     ]
+    }
+   ],
    "source": [
     "# モジュールを再読み込み（コード更新時）\n",
     "import importlib\n",
@@ -208,9 +272,34 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": 12,
    "metadata": {},
-   "outputs": [],
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "============================================================\n",
+      "ビジュアルHTMLレポート生成\n",
+      "============================================================\n",
+      "\n",
+      "生成中: 2802 味の素\n",
+      "出力先: /Users/sollahiro/software/jquants-analyzer/reports/visual_report_2802_20260106_234957.html\n",
+      "\n",
+      "✅ HTMLレポートが生成されました: /Users/sollahiro/software/jquants-analyzer/reports/visual_report_2802_20260106_234957.html\n",
+      "✅ CSVレポートが生成されました: /Users/sollahiro/software/jquants-analyzer/reports/visual_report_2802_20260106_234957.csv\n",
+      "\n",
+      "✅ HTMLレポートが生成されました\n",
+      "   ファイル: /Users/sollahiro/software/jquants-analyzer/reports/visual_report_2802_20260106_234957.html\n",
+      "   ファイルサイズ: 85.4 KB\n",
+      "\n",
+      "【ブラウザで開く方法】\n",
+      "   open /Users/sollahiro/software/jquants-analyzer/reports/visual_report_2802_20260106_234957.html  # macOS\n",
+      "\n",
+      "出力ディレクトリ: /Users/sollahiro/software/jquants-analyzer/reports\n"
+     ]
+    }
+   ],
    "source": [
     "\n",
     "# ビジュアルHTMLレポート生成\n",
