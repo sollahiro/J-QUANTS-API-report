@@ -5,13 +5,11 @@ APIキー認証とデータ取得機能を提供します。
 データ取得期間を設定可能にしています。
 """
 
-import os
 import time
 from typing import Optional, Dict, List, Any
 from datetime import datetime
 
 import requests
-from dotenv import load_dotenv
 from ..config import config
 
 
@@ -28,11 +26,10 @@ class JQuantsAPIClient:
         初期化
 
         Args:
-            api_key: APIキー。Noneの場合は環境変数JQUANTS_API_KEYから取得
-            base_url: APIベースURL。Noneの場合は環境変数またはデフォルト値を使用
+            api_key: APIキー。Noneの場合はconfigから取得
+            base_url: APIベースURL。Noneの場合はconfigまたはデフォルト値を使用
         """
-        load_dotenv()
-        self.api_key = api_key or os.getenv("JQUANTS_API_KEY")
+        self.api_key = api_key or config.api_key
         
         if not self.api_key:
             raise ValueError(
@@ -41,8 +38,8 @@ class JQuantsAPIClient:
                 "コンストラクタでapi_keyを指定してください。"
             )
         
-        # ベースURLを環境変数から取得、なければデフォルト値
-        self.base_url = base_url or os.getenv("JQUANTS_API_BASE_URL", self.BASE_URL)
+        # ベースURLをconfigから取得、なければデフォルト値
+        self.base_url = base_url or config.api_base_url
         
         # APIキーの前後の空白を削除
         self.api_key = self.api_key.strip()

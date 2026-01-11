@@ -31,8 +31,29 @@ def extract_annual_data(
         if record.get("CurPerType") != "FY":
             continue
         
-        # 未来の年度データを除外
+        # 未来の年度データを除外（年度終了日と開示日の両方をチェック）
         fy_end = record.get("CurFYEn", "")
+        disc_date = record.get("DiscDate", "")
+        
+        # 開示日が未来の場合は除外（開示日が存在する場合）
+        if disc_date:
+            try:
+                # YYYYMMDD形式またはYYYY-MM-DD形式を想定
+                if len(disc_date) == 8:  # YYYYMMDD
+                    disc_date_obj = datetime.strptime(disc_date, "%Y%m%d")
+                elif len(disc_date) == 10:  # YYYY-MM-DD
+                    disc_date_obj = datetime.strptime(disc_date, "%Y-%m-%d")
+                else:
+                    disc_date_obj = None
+                
+                if disc_date_obj and disc_date_obj > today:
+                    # 開示日が未来の場合は除外
+                    continue
+            except (ValueError, TypeError):
+                # パースに失敗した場合は年度終了日でチェック
+                pass
+        
+        # 年度終了日が未来の場合は除外
         if fy_end:
             # YYYYMMDD形式またはYYYY-MM-DD形式を想定
             if len(fy_end) == 8:  # YYYYMMDD
@@ -243,6 +264,8 @@ def calculate_metrics(
         # 配当性向（APIからは小数で返ってくるので100倍してパーセント値に変換）
         payout_ratio_raw = to_float(year_data.get("PayoutRatioAnn"))
         payout_ratio = payout_ratio_raw * 100 if payout_ratio_raw is not None else None
+        # 配当金総額（円単位）
+        div_total = to_float(year_data.get("DivTotalAnn"))
         
         # FCF計算
         fcf = None
@@ -309,6 +332,7 @@ def calculate_metrics(
             "per": per,
             "pbr": pbr,
             "payout_ratio": payout_ratio,  # 配当性向
+            "div_total": div_total,  # 配当金総額
         }
         years_metrics.append(year_metric)
     

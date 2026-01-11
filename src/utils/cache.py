@@ -1,8 +1,9 @@
 """
 キャッシュ管理モジュール
+
+APIレスポンスのキャッシュ保存・読み込み機能を提供します。
 """
 
-import os
 import json
 import pickle
 from datetime import datetime, date
@@ -11,7 +12,11 @@ from pathlib import Path
 
 
 class CacheManager:
-    """キャッシュ管理クラス"""
+    """
+    キャッシュ管理クラス
+    
+    APIレスポンスをキャッシュし、日単位で有効期限を管理します。
+    """
     
     def __init__(self, cache_dir: str = "cache"):
         """
@@ -133,6 +138,50 @@ class CacheManager:
             metadata_path = self._get_metadata_file_path()
             if metadata_path.exists():
                 metadata_path.unlink()
+    
+    def get_by_code(self, code: str) -> Dict[str, Any]:
+        """
+        銘柄コードに関連するキャッシュを取得
+        
+        Args:
+            code: 銘柄コード
+            
+        Returns:
+            銘柄コードに関連するキャッシュの辞書（キー: キャッシュキー、値: キャッシュデータ）
+        """
+        result = {}
+        metadata = self._load_metadata()
+        
+        # メタデータから銘柄コードを含むキーを検索
+        for key in metadata.keys():
+            # キャッシュキーに銘柄コードが含まれているかチェック
+            # 一般的なパターン: "stock_{code}_*", "{code}_*", "*_{code}_*" など
+            if code in key:
+                cache_data = self.get(key)
+                if cache_data is not None:
+                    result[key] = cache_data
+        
+        return result
+    
+    def clear_by_code(self, code: str):
+        """
+        銘柄コードに関連するキャッシュを削除
+        
+        Args:
+            code: 銘柄コード
+        """
+        metadata = self._load_metadata()
+        keys_to_delete = []
+        
+        # メタデータから銘柄コードを含むキーを検索
+        for key in metadata.keys():
+            # キャッシュキーに銘柄コードが含まれているかチェック
+            if code in key:
+                keys_to_delete.append(key)
+        
+        # 見つかったキーを削除
+        for key in keys_to_delete:
+            self.clear(key)
 
 
 

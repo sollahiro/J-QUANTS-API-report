@@ -2,10 +2,23 @@
 
 J-QUANTS APIから取得したデータがどのように加工されて最終的な分析結果になるか、そのフローを説明します。
 
+## 実行環境
+
+このデータ加工フローは、Streamlitアプリケーション（`app.py`）から呼び出されます。
+- **エントリーポイント**: `app.py`（Streamlitアプリケーション）
+- **分析実行**: `src/ui/analysis_handler.py`の`run_analysis()`関数
+- **分析ロジック**: `src/analysis/individual.py`の`IndividualAnalyzer`クラス
+
 ## 全体フロー
 
 ```
+Streamlitアプリ（app.py）
+  ↓
+分析ハンドラー（run_analysis）
+  ↓
 API取得 → 年度データ抽出 → 株価取得 → 指標計算 → レポート生成
+  ↓
+分析結果の表示（Streamlit UI）
 ```
 
 ## 1. APIから生データ取得
@@ -184,78 +197,108 @@ CAGR = ((最新年の値 / 最古の値) ^ (1 / 年数) - 1) × 100
 }
 ```
 
-## 5. レポート生成時の単位変換
+## 5. Streamlit UIでの表示と単位変換
 
-### 5.1 年度別財務データ表
+### 5.1 Streamlit UIでの表示
+- **表示コンポーネント**: `src/ui/components.py`の`display_analysis_results()`関数
+- **年度別財務データ表**: `src/ui/table.py`の`create_financial_data_table()`関数で生成
+- **グラフ表示**: Plotlyグラフをタブ形式で表示
+- **有報PDFダウンロード**: 最新年度の有価証券報告書PDFをダウンロード可能
+
+### 5.4 年度別財務データ表
 - **`format_currency`フィルター**: 数値を百万円単位で表示
 - **変換ロジック**: 
   - 値が0の場合は"0"を表示
   - 値が0でない場合: `abs(値) / 1,000,000` を計算して百万円単位で表示
   - 負の値の場合は"-"を付与
 
-### 5.2 グラフのホバー表示
+### 5.3 グラフのホバー表示
 - **FCF推移、売上高推移**: `customdata`を使用して百万円単位で表示
 - **変換ロジック**: グラフの`y`値は円単位のまま、ホバー表示時に`customdata`（百万円単位）を表示
 
-### 5.3 グラフのY軸
+### 5.4 グラフのY軸
 - **FCF推移**: "金額 (円)" と表示（実際の値は円単位）
 
 ---
 
-## 6. CSVレポート出力
 
-### 6.1 CSVレポートの構成
+## 6. Streamlit UIでの表示
 
-HTMLレポート生成時に、同じデータをCSV形式でも自動出力します。
+### 6.1 分析結果の表示
+- **表示関数**: `src/ui/components.py`の`display_analysis_results()`関数
+- **レイアウト**: 左右2カラム（左：事業概要、右：財務グラフ）
+- **年度別財務データ表**: 年度列固定、横スクロール対応、ダークモード対応
 
-**出力内容**:
-1. **ヘッダー情報**（セクション名なし）
-   - 項目、値の2列形式
-   - 銘柄コード、会社名、セクター名、市場名、分析日
+### 6.2 グラフの表示
+- **グラフ生成**: `src/report/graph_generator.py`の`_create_interactive_graphs()`メソッド
+- **表示形式**: Plotlyグラフをタブ形式で表示
+- **グラフセクション**:
+  - 事業効率（簡易ROIC × CF変換率）
+  - キャッシュフロー（FCF）
+  - 株主価値の蓄積（EPS × BPS × ROE）
+  - 配当政策と市場評価（配当性向 × ROE × PBR）
+  - 市場評価（PER × ROE × PBR）
+  - 株価とEPSの乖離
 
-2. **年度別財務データ**（セクション名なし）
-   - 19列のテーブル形式
-   - ヘッダー行 + データ行（各年度1行）
+### 6.3 有報PDFダウンロード
+- **PDF保存先**: `reports/{code}_edinet/`ディレクトリ
+- **ダウンロード機能**: Streamlitの`st.download_button()`を使用
+- **表示条件**: 最新年度の有価証券報告書PDFが存在する場合のみ表示
 
-### 6.2 CSV出力データの詳細
+## 7. EDINET統合機能の処理フロー（XBRL解析）
 
-**基本財務指標**（14列）:
-- 年度終了日
-- 売上高(百万円)
-- 営業利益(百万円)
-- 当期純利益(百万円)
-- 純資産(百万円)
-- 営業CF(百万円)
-- 投資CF(百万円)
-- FCF(百万円)
-- ROE(%)
-- EPS(円)
-- BPS(円)
-- PER(倍)
-- PBR(倍)
-- 配当性向(%)
+### 7.1 EDINET APIから有価証券報告書を取得
+- **API**: EDINET APIの`/documents/{docID}`エンドポイント
+- **取得データ**: PDFファイルとXBRLファイル（ZIP形式）
+- **保存先**: `reports/{code}_edinet/`ディレクトリ
+  - PDF: `{docID}.pdf`
+  - XBRL: `{docID}_xbrl/`ディレクトリに展開
 
-**グラフ用計算指標**（5列）:
-- 簡易ROIC(%) = 営業利益 / 純資産 × 100
-- CF変換率(%) = 営業CF / 営業利益 × 100
-- 株価(円) = 年度末終値（既存データを使用）
-- 株価指数 = (現在株価 / 基準年度株価) × 100（基準年度=100）
-- EPS指数 = (現在EPS / 基準年度EPS) × 100（基準年度=100）
+### 7.2 XBRL解析
+- **解析モジュール**: `src/analysis/xbrl_parser.py`の`XBRLParser`クラス
+- **処理内容**:
+  1. **インラインXBRL（HTML形式）の解析**:
+     - `beautifulsoup4`を使用してHTMLからセクションを抽出
+     - `PublicDoc/`ディレクトリ内のHTMLファイルを検索
+  2. **XBRLインスタンス文書（XML形式）の解析**:
+     - `xml.etree.ElementTree`を使用してXMLからテキストブロックを抽出
+     - `XBRL/`ディレクトリ内のXMLファイルを検索
+  3. **報告書タイプの自動判定**:
+     - ファイル名やXML内容から有価証券報告書と半期報告書を自動判定
+  4. **セクション抽出**（`COMMON_SECTIONS`で定義）:
+     - **A: 事業の内容** (`DescriptionOfBusinessTextBlock`)
+       - 会社の事業内容、主要製品・サービス、事業の特徴など
+     - **B: 経営方針、経営環境及び対処すべき課題等** (`BusinessPolicyTextBlock`)
+       - 経営方針、経営環境の変化、対処すべき課題、事業戦略など
+     - **C: 事業等のリスク** (`BusinessRisksTextBlock`)
+       - 事業リスク、財務リスク、経営リスク、リスク対策など
+     - **D: 経営者による財政状態、経営成績及びキャッシュ・フローの状況の分析** (`ManagementAnalysisOfFinancialPositionOperatingResultsAndCashFlowsTextBlock`)
+       - 経営成績の分析、財政状態の分析、キャッシュ・フロー状況の分析など
+     - **E: 重要な契約等** (`ImportantContractsTextBlock`)
+       - 重要な契約、取引先との関係、関連会社との取引など
+     - **F: 設備投資等の概要** (`OverviewOfCapitalInvestmentTextBlock`)
+       - 設備投資計画、研究開発投資、M&A計画など
+     - **抽出順序**: A→B→C→D→E→Fの順で抽出し、結合してLLMに渡す
 
-### 6.3 データフォーマット
+### 7.3 LLM要約
+- **要約モジュール**: `src/analysis/llm_summarizer.py`の`LLMSummarizer`クラス
+- **処理内容**:
+  1. XBRLから抽出したテキストを結合
+  2. Ollama（`gemma3:1b`モデル、デフォルト）を使用してテキストを要約。環境変数`LLM_MODEL`で他のモデルに切り替え可能
+  3. 日本語出力を強制し、マークダウン記法で出力
+  4. 要約結果をキャッシュ（`cache/edinet/summaries/`に保存）
 
-- **金額データ**: 円単位のデータを百万円単位に変換（小数点2桁）
-- **比率データ**: パーセント表示（小数点2桁）
-- **倍率データ**: 倍表示（小数点2桁）
-- **指数データ**: 基準年度=100として計算（小数点2桁）
-- **空値**: Noneの場合は空文字列として出力
+### 7.4 Streamlit UIでの表示
+- **表示コンポーネント**: `src/ui/components.py`の`_display_business_overview()`関数
+- **表示内容**:
+  - 最新年度の有価証券報告書から抽出した事業概要・経営方針・課題のLLM要約
+  - マークダウン記法対応（見出し、箇条書き、強調表示）
+  - 年度と提出日を表示
+  - 有報PDFダウンロードボタンを表示
 
-### 6.4 ファイル形式
-
-- **エンコーディング**: UTF-8 with BOM (`utf-8-sig`) - Excelで正しく開けるように
-- **ファイル名**: `visual_report_{銘柄コード}_{タイムスタンプ}.csv`
-- **出力先**: `reports/`ディレクトリ（HTMLレポートと同じディレクトリ）
-- **売上高推移**: "売上高 (円)" と表示（実際の値は円単位）
+### 7.5 PDFとXBRLの使い分け
+- **PDF**: ダウンロード用のみ（ユーザーが手動で確認するためのファイル）
+- **XBRL**: 要約用（LLM要約のためのテキスト抽出に使用）
 
 ## データの単位について
 
@@ -299,25 +342,49 @@ HTMLレポート生成時に、同じデータをCSV形式でも自動出力し�
 ## データフローのまとめ
 
 ```
-1. API取得
+1. Streamlitアプリ（app.py）
+   ↓
+   [ユーザーが銘柄コードを入力して「分析」ボタンをクリック]
+
+2. 分析ハンドラー（run_analysis）
+   ↓
+   [進捗表示の管理、エラーハンドリング]
+
+3. API取得
    ↓
    [生データ: 円単位、年度/四半期混在、重複あり、未来データ含む]
 
-2. 年度データ抽出（extract_annual_data）
+4. 年度データ抽出（extract_annual_data）
    ↓
    [年度データのみ、未来データ除外、無効データ除外、重複除去、新しい順ソート]
 
-3. 株価取得
+5. 株価取得
    ↓
    [年度終了日ごとの株価（休日は直前営業日）]
 
-4. 指標計算（calculate_metrics_flexible）
+6. 指標計算（calculate_metrics_flexible）
    ↓
    [各年度の指標（FCF、ROE、EPS、PER、PBR等）、成長率（YoY/CAGR）]
 
-5. レポート生成
+7. グラフ生成（`src/report/graph_generator.py`）
    ↓
-   [表示時のみ単位変換（百万円単位）、グラフ生成、HTML出力]
+   [Plotlyグラフの生成]
+
+8. グラフ生成（`src/report/graph_generator.py`）
+   ↓
+   [Plotlyグラフの生成]
+
+9. EDINET統合機能（オプション）
+   ↓
+   [EDINET APIから有価証券報告書を取得（PDFとXBRL）]
+   ↓
+   [XBRL解析（`src/analysis/xbrl_parser.py`）でテキスト抽出]
+   ↓
+   [LLM要約（`src/analysis/llm_summarizer.py`）で要約生成]
+
+10. Streamlit UI表示（`src/ui/components.py`）
+   ↓
+   [分析結果をWebインターフェースで表示（年度別財務データ表、グラフ、有報要約）]
 ```
 
 ## 重要なポイント

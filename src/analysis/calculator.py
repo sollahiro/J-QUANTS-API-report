@@ -283,6 +283,8 @@ def calculate_metrics_flexible(
         # 配当性向（APIからは小数で返ってくるので100倍してパーセント値に変換）
         payout_ratio_raw = to_float(year_data.get("PayoutRatioAnn"))
         payout_ratio = payout_ratio_raw * 100 if payout_ratio_raw is not None else None
+        # 配当金総額（円単位）
+        div_total = to_float(year_data.get("DivTotalAnn"))
         
         # FCF計算
         fcf = None
@@ -333,6 +335,7 @@ def calculate_metrics_flexible(
         
         year_metric = {
             "fy_end": fy_end,
+            "disc_date": year_data.get("DiscDate", ""),  # 開示日（EDINET検索効率化のため）
             "sales": sales,
             "op": op,
             "np": np,
@@ -347,6 +350,7 @@ def calculate_metrics_flexible(
             "per": per,
             "pbr": pbr,
             "payout_ratio": payout_ratio,  # 配当性向
+            "div_total": div_total,  # 配当金総額
         }
         years_metrics.append(year_metric)
     

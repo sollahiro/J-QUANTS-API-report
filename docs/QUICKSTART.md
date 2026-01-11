@@ -6,7 +6,7 @@
 1. **J-QUANTS API**: [J-QUANTS Dashboard](https://jpx-jquants.com/) にアクセス
    - アカウントを作成（無料プランで利用可能）
    - DashboardからAPIキーを取得
-2. **EDINET API**（オプション、定性情報分析を使用する場合）: [EDINET API](https://disclosure2.edinet-fsa.go.jp/) にアクセス
+2. **EDINET API**（オプション、定性情報分析を使用する場合）: [EDINET API](https://api.edinet-fsa.go.jp/api/auth/index.aspx?mode=1) にアクセス
    - APIキーを取得
 
 ### 環境変数の設定
@@ -27,6 +27,7 @@ cat > .env << EOF
 JQUANTS_API_KEY=your_jquants_api_key_here
 JQUANTS_API_BASE_URL=https://api.jquants.com/v2
 EDINET_API_KEY=your_edinet_api_key_here
+LLM_MODEL=gemma3:1b  # デフォルト（環境変数で他のモデルに変更可能）
 EOF
 ```
 
@@ -53,8 +54,11 @@ brew install ollama
 # Ollamaを起動（バックグラウンドで実行）
 ollama serve
 
-# gemma2:2bモデルをダウンロード
-ollama pull gemma2:2b
+# デフォルトモデル（gemma3:1b）をダウンロード
+ollama pull gemma3:1b
+
+# または他のモデルを使用する場合（.envでLLM_MODELを設定）
+# ollama pull qwen3:8b  # より高性能なモデル
 ```
 
 Ollamaが起動しているか確認：
@@ -103,26 +107,13 @@ J-QUANTS API 接続テスト
 ### 個別分析
 
 ```bash
-# ラッパースクリプトを使用（推奨）
-python3 scripts/notebook_analysis.py 6501
-
-# または、Jupyter Notebookを直接起動
-jupyter notebook notebooks/individual_analysis_template.ipynb
+# Streamlitアプリを起動
+streamlit run app.py
 ```
+
+ブラウザでアプリが開いたら、検索バーに銘柄コード（例: 6501）を入力して「分析」ボタンをクリックしてください。
 
 詳細な使用方法は[README.md](README.md#個別詳細分析)を参照してください。
-
-### ウォッチリスト管理
-
-```bash
-# 銘柄を追加
-python3 scripts/watchlist_manager.py add 7203 "トヨタ自動車" --tags 製造業 高ROE
-
-# リスト表示
-python3 scripts/watchlist_manager.py list
-```
-
-詳細な使用方法は[README.md](README.md#ウォッチリスト管理)を参照してください。
 
 ## トラブルシューティング
 
@@ -162,7 +153,5 @@ ModuleNotFoundError: No module named 'src'
 
 - [README.md](README.md)で詳細な機能説明を確認
 - 気になる銘柄を個別分析する
-- 生成されたHTMLレポートを確認する（総合評価機能を確認）
-- 生成されたCSVレポートを確認する（Excel等で開いてデータ分析）
-- ウォッチリストに銘柄を追加して管理する
+- Streamlit UIで分析結果を確認する（総合評価機能を確認）
 

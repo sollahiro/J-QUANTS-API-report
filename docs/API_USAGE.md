@@ -320,6 +320,15 @@ response = client._request(f"/documents/{doc_id}", params)
 - PDF: バイナリデータ（`application/pdf`）
 - XBRL: ZIPファイル（`application/zip`）
 
+**XBRLファイルの展開**:
+- XBRLはZIP形式でダウンロードされるため、展開が必要です
+- 展開後は`{docID}_xbrl/`ディレクトリに保存されます
+- 展開されたXBRLファイルは以下の構造になります：
+  - `PublicDoc/`: インラインXBRL（HTML形式）が含まれる
+  - `XBRL/`: XBRLインスタンス文書（XML形式）が含まれる
+    - `AuditDoc/`: 監査報告書関連
+    - `PublicDoc/`: 公開文書関連
+
 ### 有価証券報告書の検索ロジック
 
 EDINET APIでは、有価証券報告書を検索する際に以下のロジックを使用しています。
@@ -393,6 +402,8 @@ else:
 6. **銘柄コードのマッチング**: `secCode`と検索コードを比較（4桁・5桁の両形式に対応）
 7. **404エラー**: 有報が存在しない場合は404が返されるが、エラーにしない
 8. **キャッシュ**: ダウンロードしたPDF/XBRLは`reports/{code}_edinet/`に保存
+9. **XBRLの展開**: XBRLはZIP形式でダウンロードされ、自動的に展開される
+10. **PDFとXBRLの使い分け**: PDFはダウンロード用のみ、要約にはXBRLを使用
 
 ### 書類種別コード（docTypeCode）の説明
 

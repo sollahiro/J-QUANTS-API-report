@@ -1,11 +1,11 @@
 """
-レポート生成モジュール
+グラフ生成モジュール
 """
 
-from .html_report import HTMLReportGenerator
+from .graph_generator import GraphGenerator
 
 __all__ = [
-    "HTMLReportGenerator",
+    "GraphGenerator",
 ]
 
 

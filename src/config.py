@@ -26,6 +26,9 @@ class Config:
         # EDINET API設定
         self.edinet_api_key = os.getenv("EDINET_API_KEY")
         
+        # LLM設定
+        self.llm_model = os.getenv("LLM_MODEL", "gemma3:1b")
+        
         # 分析設定
         # ANALYSIS_YEARSは環境変数で指定可能（指定しない場合は利用可能なデータを最大限使用）
         analysis_years_str = os.getenv("ANALYSIS_YEARS")
